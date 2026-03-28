@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { ShieldCheck, Users, Trophy, Sparkles } from 'lucide-react';
-import { supabase } from '../lib/supabase';
 
 type UserRow = {
   id: string;

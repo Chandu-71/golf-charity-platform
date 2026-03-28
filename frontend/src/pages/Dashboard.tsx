@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CalendarDays, LayoutDashboard, PlusCircle, Trophy, Wallet, Info } from 'lucide-react';
+import { CalendarDays, PlusCircle, Trophy, Wallet, Info } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 

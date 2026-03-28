@@ -1,6 +1,5 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import type { MouseEvent } from 'react';
 import { HeartHandshake } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -8,8 +7,6 @@ import { supabase } from '../lib/supabase';
 export function Navbar() {
   const { user } = useAuth();
   const [role, setRole] = useState<string | null>(null);
-  const location = useLocation();
-  const navigate = useNavigate();
 
   useEffect(() => {
     let active = true;
@@ -41,24 +38,6 @@ export function Navbar() {
       active = false;
     };
   }, [user]);
-
-  const scrollToCharities = () => {
-    const section = document.getElementById('charities');
-    if (section) {
-      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  };
-
-  const handleCharitiesClick = (event: MouseEvent<HTMLAnchorElement>) => {
-    event.preventDefault();
-
-    if (location.pathname === '/') {
-      scrollToCharities();
-    } else {
-      navigate('/');
-      setTimeout(scrollToCharities, 150);
-    }
-  };
 
   async function handleLogout() {
     await supabase.auth.signOut();

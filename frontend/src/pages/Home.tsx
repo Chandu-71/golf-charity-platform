@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BadgeCheck, Target, Heart, Sparkles, Ticket, Trophy, ShieldCheck } from 'lucide-react';
+import { BadgeCheck, Heart, Sparkles, Ticket, Trophy, ShieldCheck } from 'lucide-react';
 
 type Charity = {
   id: string;
