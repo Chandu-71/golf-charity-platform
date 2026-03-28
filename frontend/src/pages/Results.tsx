@@ -228,16 +228,16 @@ export function Results() {
             return (
               <div
                 key={draw.id}
-                className='bg-gray-900 border border-gray-800 rounded-2xl p-6 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6'
+                className='bg-gray-900 border border-gray-800 rounded-2xl p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 md:gap-8 hover:border-gray-700 transition-colors'
               >
-                <div className='min-w-[120px] min-h-[120px] rounded-xl bg-gray-800 border border-gray-700 flex flex-col items-center justify-center text-white'>
-                  <p className='text-sm uppercase tracking-wide text-gray-400'>{month}</p>
-                  <p className='text-4xl font-bold'>{day}</p>
-                  <p className='text-xs text-gray-400'>{year}</p>
-                </div>
+                <div className='flex flex-col md:flex-row items-center gap-6'>
+                  <div className='bg-gray-950 border border-gray-800 rounded-xl px-6 py-3 flex flex-col items-center justify-center min-w-[120px] shadow-inner'>
+                    <p className='text-sm uppercase tracking-wide text-gray-400'>{month}</p>
+                    <p className='text-4xl font-bold'>{day}</p>
+                    <p className='text-xs text-gray-400'>{year}</p>
+                  </div>
 
-                <div className='flex-1 w-full'>
-                  <div className='flex flex-wrap items-center gap-3'>
+                  <div className='flex flex-wrap justify-center items-center gap-3'>
                     {draw.winning_numbers.map(num => (
                       <span
                         key={num}
@@ -249,19 +249,21 @@ export function Results() {
                   </div>
                 </div>
 
-                <div className='text-right'>
-                  <p className='text-xs uppercase tracking-wide text-gray-400'>JACKPOT POOL</p>
-                  <p className='text-2xl font-bold text-white'>£10,000</p>
+                <div className='flex flex-col items-center md:items-end gap-4 w-full md:w-auto text-center md:text-right'>
+                  <div>
+                    <p className='text-sm font-semibold text-gray-400 tracking-wider uppercase'>JACKPOT POOL</p>
+                    <p className='text-3xl md:text-4xl font-extrabold text-white'>£10,000</p>
+                  </div>
 
                   {user && !claim ? (
-                    <div className='mt-4 text-left md:text-right'>
+                    <div className='w-full'>
                       <button
                         type='button'
                         onClick={() => {
                           setActiveClaimDrawId(prev => (prev === draw.id ? null : draw.id));
                           setClaimErrorsByDraw(prev => ({ ...prev, [draw.id]: '' }));
                         }}
-                        className='inline-flex items-center rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-xs font-semibold text-white hover:bg-gray-700 transition'
+                        className='w-full md:w-auto px-8 py-3 bg-white text-black font-bold rounded-full hover:scale-105 hover:shadow-[0_0_20px_rgba(255,255,255,0.2)] transition-all duration-300'
                       >
                         Claim Win
                       </button>
@@ -269,33 +271,33 @@ export function Results() {
                   ) : null}
 
                   {claim ? <div className='mt-3'>{renderClaimStatusBadge(claim)}</div> : null}
-                </div>
 
-                {activeClaimDrawId === draw.id && user && !claim ? (
-                  <div className='w-full border-t border-gray-800 pt-4'>
-                    <div className='flex items-center gap-3 bg-gray-950 p-2 rounded-xl border border-gray-800'>
-                      <input
-                        type='file'
-                        accept='image/*'
-                        onChange={event => {
-                          const file = event.target.files?.[0] ?? null;
-                          setSelectedFiles(prev => ({ ...prev, [draw.id]: file }));
-                        }}
-                        className='block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-800 file:text-white hover:file:bg-gray-700 cursor-pointer'
-                      />
-                      <button
-                        type='button'
-                        onClick={() => handleClaimSubmit(draw.id, selectedFiles[draw.id] ?? null)}
-                        disabled={Boolean(claimSubmittingByDraw[draw.id])}
-                        className='px-6 py-2 bg-white text-black font-semibold rounded-lg hover:bg-gray-200 transition-colors whitespace-nowrap disabled:opacity-60'
-                      >
-                        {claimSubmittingByDraw[draw.id] ? 'Submitting...' : 'Submit Claim'}
-                      </button>
+                  {activeClaimDrawId === draw.id && user && !claim ? (
+                    <div className='w-full border-t border-gray-800 pt-4'>
+                      <div className='flex items-center gap-3 bg-gray-950 p-2 rounded-xl border border-gray-800'>
+                        <input
+                          type='file'
+                          accept='image/*'
+                          onChange={event => {
+                            const file = event.target.files?.[0] ?? null;
+                            setSelectedFiles(prev => ({ ...prev, [draw.id]: file }));
+                          }}
+                          className='block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-800 file:text-white hover:file:bg-gray-700 cursor-pointer'
+                        />
+                        <button
+                          type='button'
+                          onClick={() => handleClaimSubmit(draw.id, selectedFiles[draw.id] ?? null)}
+                          disabled={Boolean(claimSubmittingByDraw[draw.id])}
+                          className='px-6 py-2 bg-white text-black font-semibold rounded-lg hover:bg-gray-200 transition-colors whitespace-nowrap disabled:opacity-60'
+                        >
+                          {claimSubmittingByDraw[draw.id] ? 'Submitting...' : 'Submit Claim'}
+                        </button>
+                      </div>
+
+                      {claimErrorsByDraw[draw.id] ? <p className='mt-2 text-sm text-rose-300 text-left'>{claimErrorsByDraw[draw.id]}</p> : null}
                     </div>
-
-                    {claimErrorsByDraw[draw.id] ? <p className='mt-2 text-sm text-rose-300'>{claimErrorsByDraw[draw.id]}</p> : null}
-                  </div>
-                ) : null}
+                  ) : null}
+                </div>
               </div>
             );
           })

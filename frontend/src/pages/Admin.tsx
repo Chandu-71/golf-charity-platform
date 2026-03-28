@@ -294,8 +294,8 @@ export function Admin() {
   }
 
   return (
-    <div className='mx-auto max-w-7xl px-4 py-10 sm:py-12'>
-      <div className='grid gap-6'>
+    <div className='mx-auto w-full max-w-7xl px-4 py-10 sm:py-12 overflow-x-hidden'>
+      <div className='grid gap-6 min-w-0'>
         <div className='rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_20px_80px_rgba(0,0,0,0.55)]'>
           <div className='flex items-center gap-3'>
             <div className='inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/10 text-white'>
@@ -308,8 +308,8 @@ export function Admin() {
           </div>
         </div>
 
-        <div className='grid gap-6 lg:grid-cols-2'>
-          <section className='rounded-3xl border border-white/10 bg-white/5 p-6'>
+        <div className='grid gap-6 lg:grid-cols-2 min-w-0'>
+          <section className='rounded-3xl border border-white/10 bg-white/5 p-6 min-w-0'>
             <div className='flex items-center gap-2 text-white'>
               <Trophy className='h-5 w-5' />
               <h2 className='text-lg font-semibold'>Draw Engine</h2>
@@ -354,7 +354,7 @@ export function Admin() {
             </div>
           </section>
 
-          <section className='rounded-3xl border border-white/10 bg-white/5 p-6'>
+          <section className='rounded-3xl border border-white/10 bg-white/5 p-6 min-w-0'>
             <div className='flex items-center gap-2 text-white'>
               <Users className='h-5 w-5' />
               <h2 className='text-lg font-semibold'>User Management</h2>
@@ -366,21 +366,21 @@ export function Admin() {
             ) : usersError ? (
               <div className='mt-5 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-100'>{usersError}</div>
             ) : (
-              <div className='mt-5 overflow-x-auto'>
-                <table className='w-full text-sm'>
+              <div className='mt-5 w-full max-w-full overflow-x-auto'>
+                <table className='w-full min-w-[420px] text-sm'>
                   <thead>
                     <tr className='border-b border-white/10 text-zinc-300'>
-                      <th className='py-2 pr-4 text-left font-medium'>User ID</th>
-                      <th className='py-2 pr-4 text-left font-medium'>Plan</th>
-                      <th className='py-2 text-left font-medium'>Charity %</th>
+                      <th className='py-2 pr-4 text-left font-medium whitespace-nowrap'>User ID</th>
+                      <th className='py-2 pr-4 text-left font-medium whitespace-nowrap'>Plan</th>
+                      <th className='py-2 text-left font-medium whitespace-nowrap'>Charity %</th>
                     </tr>
                   </thead>
                   <tbody>
                     {users.map(u => (
                       <tr key={u.id} className='border-b border-white/5 text-zinc-200'>
-                        <td className='py-3 pr-4 font-mono text-xs'>{u.id.substring(0, 8)}</td>
-                        <td className='py-3 pr-4'>{u.plan ?? '-'}</td>
-                        <td className='py-3'>{u.charity_percentage ?? '-'}</td>
+                        <td className='py-3 pr-4 font-mono text-xs whitespace-nowrap'>{u.id.substring(0, 8)}</td>
+                        <td className='py-3 pr-4 whitespace-nowrap'>{u.plan ?? '-'}</td>
+                        <td className='py-3 whitespace-nowrap'>{u.charity_percentage ?? '-'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -390,7 +390,7 @@ export function Admin() {
           </section>
         </div>
 
-        <section className='rounded-2xl border border-gray-800 bg-gray-900 p-6'>
+        <section className='rounded-2xl border border-gray-800 bg-gray-900 p-6 min-w-0'>
           <div className='flex items-center gap-2 text-white'>
             <ShieldCheck className='h-5 w-5' />
             <h2 className='text-lg font-semibold'>Winner Verification</h2>
@@ -406,74 +406,76 @@ export function Admin() {
           ) : winnerClaims.length === 0 ? (
             <div className='mt-5 text-sm text-gray-400'>No winner claims have been submitted yet.</div>
           ) : (
-            <div className='mt-5 overflow-x-auto'>
-              <table className='w-full min-w-[840px] text-sm'>
-                <thead>
-                  <tr className='border-b border-gray-800 text-gray-300'>
-                    <th className='py-2 pr-4 text-left font-medium'>Draw ID</th>
-                    <th className='py-2 pr-4 text-left font-medium'>User ID</th>
-                    <th className='py-2 pr-4 text-left font-medium'>Proof</th>
-                    <th className='py-2 pr-4 text-left font-medium'>Verification Status</th>
-                    <th className='py-2 pr-4 text-left font-medium'>Payment Status</th>
-                    <th className='py-2 text-left font-medium'>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {winnerClaims.map(claim => (
-                    <tr key={claim.id} className='border-b border-gray-800/80 text-gray-200'>
-                      <td className='py-3 pr-4 font-mono text-xs'>{claim.draw_id.slice(0, 8)}</td>
-                      <td className='py-3 pr-4 font-mono text-xs'>{claim.user_id.slice(0, 8)}</td>
-                      <td className='py-3 pr-4'>
-                        <a
-                          href={claim.proof_url}
-                          target='_blank'
-                          rel='noreferrer'
-                          className='text-cyan-300 hover:text-cyan-200 underline underline-offset-2'
-                        >
-                          View Proof
-                        </a>
-                      </td>
-                      <td className='py-3 pr-4 capitalize'>{claim.verification_status}</td>
-                      <td className='py-3 pr-4 capitalize'>{claim.payment_status}</td>
-                      <td className='py-3'>
-                        <div className='flex flex-wrap gap-2'>
-                          <button
-                            type='button'
-                            onClick={() => handleApprove(claim.id)}
-                            disabled={Boolean(claimActionLoadingById[claim.id]) || claim.verification_status === 'approved'}
-                            className='rounded-md border border-emerald-600/40 bg-emerald-700/20 px-3 py-1.5 text-xs font-semibold text-emerald-200 hover:bg-emerald-700/30 disabled:opacity-50'
+            <div className='mt-5'>
+              <div className='w-full max-w-full overflow-x-auto border border-gray-800 rounded-xl bg-gray-900/50 scrollbar-thin scrollbar-thumb-gray-700'>
+                <table className='w-full min-w-[800px] text-left text-sm whitespace-nowrap'>
+                  <thead>
+                    <tr className='border-b border-gray-800 text-gray-300'>
+                      <th className='py-2 pr-4 text-left font-medium whitespace-nowrap'>Draw ID</th>
+                      <th className='py-2 pr-4 text-left font-medium whitespace-nowrap'>User ID</th>
+                      <th className='py-2 pr-4 text-left font-medium whitespace-nowrap'>Proof</th>
+                      <th className='py-2 pr-4 text-left font-medium whitespace-nowrap'>Verification Status</th>
+                      <th className='py-2 pr-4 text-left font-medium whitespace-nowrap'>Payment Status</th>
+                      <th className='py-2 text-left font-medium whitespace-nowrap'>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {winnerClaims.map(claim => (
+                      <tr key={claim.id} className='border-b border-gray-800/80 text-gray-200'>
+                        <td className='py-3 pr-4 font-mono text-xs whitespace-nowrap'>{claim.draw_id.slice(0, 8)}</td>
+                        <td className='py-3 pr-4 font-mono text-xs whitespace-nowrap'>{claim.user_id.slice(0, 8)}</td>
+                        <td className='py-3 pr-4 whitespace-nowrap'>
+                          <a
+                            href={claim.proof_url}
+                            target='_blank'
+                            rel='noreferrer'
+                            className='text-cyan-300 hover:text-cyan-200 underline underline-offset-2'
                           >
-                            Approve
-                          </button>
-                          <button
-                            type='button'
-                            onClick={() => handleReject(claim.id)}
-                            disabled={Boolean(claimActionLoadingById[claim.id]) || claim.verification_status === 'rejected'}
-                            className='rounded-md border border-rose-600/40 bg-rose-700/20 px-3 py-1.5 text-xs font-semibold text-rose-200 hover:bg-rose-700/30 disabled:opacity-50'
-                          >
-                            Reject
-                          </button>
-                          {claim.verification_status === 'approved' ? (
+                            View Proof
+                          </a>
+                        </td>
+                        <td className='py-3 pr-4 capitalize whitespace-nowrap'>{claim.verification_status}</td>
+                        <td className='py-3 pr-4 capitalize whitespace-nowrap'>{claim.payment_status}</td>
+                        <td className='py-3 whitespace-nowrap'>
+                          <div className='flex flex-wrap gap-2'>
                             <button
                               type='button'
-                              onClick={() => handleMarkPaid(claim.id)}
-                              disabled={Boolean(claimActionLoadingById[claim.id]) || claim.payment_status === 'paid'}
-                              className='rounded-md border border-amber-600/40 bg-amber-700/20 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-700/30 disabled:opacity-50'
+                              onClick={() => handleApprove(claim.id)}
+                              disabled={Boolean(claimActionLoadingById[claim.id]) || claim.verification_status === 'approved'}
+                              className='rounded-md border border-emerald-600/40 bg-emerald-700/20 px-3 py-1.5 text-xs font-semibold text-emerald-200 hover:bg-emerald-700/30 disabled:opacity-50'
                             >
-                              Mark Paid
+                              Approve
                             </button>
-                          ) : null}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                            <button
+                              type='button'
+                              onClick={() => handleReject(claim.id)}
+                              disabled={Boolean(claimActionLoadingById[claim.id]) || claim.verification_status === 'rejected'}
+                              className='rounded-md border border-rose-600/40 bg-rose-700/20 px-3 py-1.5 text-xs font-semibold text-rose-200 hover:bg-rose-700/30 disabled:opacity-50'
+                            >
+                              Reject
+                            </button>
+                            {claim.verification_status === 'approved' ? (
+                              <button
+                                type='button'
+                                onClick={() => handleMarkPaid(claim.id)}
+                                disabled={Boolean(claimActionLoadingById[claim.id]) || claim.payment_status === 'paid'}
+                                className='rounded-md border border-amber-600/40 bg-amber-700/20 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-700/30 disabled:opacity-50'
+                              >
+                                Mark Paid
+                              </button>
+                            ) : null}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </section>
 
-        <section className='rounded-2xl border border-gray-800 bg-gray-900 p-6'>
+        <section className='rounded-2xl border border-gray-800 bg-gray-900 p-6 min-w-0'>
           <div className='flex items-center gap-2 text-white'>
             <ShieldCheck className='h-5 w-5' />
             <h2 className='text-lg font-semibold'>Charity Management</h2>
@@ -484,7 +486,10 @@ export function Admin() {
             <div className='mt-4 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200'>{charitiesError}</div>
           ) : null}
 
-          <form onSubmit={handleSaveCharity} className='mt-5 bg-gray-900 border border-gray-800 p-6 rounded-2xl mb-6'>
+          <form
+            onSubmit={handleSaveCharity}
+            className='mt-5 mb-6 flex flex-col gap-4 bg-gray-900 border border-gray-800 p-4 sm:p-6 rounded-2xl w-full max-w-full'
+          >
             <div className='grid gap-4 md:grid-cols-2'>
               <div className='md:col-span-2'>
                 <label htmlFor='charity-name' className='mb-2 block text-sm font-medium text-gray-300'>
@@ -530,11 +535,11 @@ export function Admin() {
               </div>
             </div>
 
-            <div className='mt-4 flex flex-wrap gap-3'>
+            <div className='flex flex-col sm:flex-row gap-3 pt-2 w-full'>
               <button
                 type='submit'
                 disabled={charitySaveLoading}
-                className='rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-gray-200 disabled:opacity-60'
+                className='w-full sm:w-auto rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-gray-200 disabled:opacity-60'
               >
                 {charitySaveLoading ? 'Saving...' : isEditingCharity ? 'Update Charity' : 'Add Charity'}
               </button>
@@ -543,7 +548,7 @@ export function Admin() {
                 <button
                   type='button'
                   onClick={resetCharityForm}
-                  className='rounded-lg border border-gray-700 px-4 py-2 text-sm font-semibold text-gray-200 hover:bg-gray-800'
+                  className='w-full sm:w-auto rounded-lg border border-gray-700 px-4 py-2 text-sm font-semibold text-gray-200 hover:bg-gray-800'
                 >
                   Cancel
                 </button>
@@ -551,34 +556,34 @@ export function Admin() {
             </div>
           </form>
 
-          <div className='bg-gray-900 border border-gray-800 p-6 rounded-2xl'>
+          <div className='bg-gray-900 border border-gray-800 p-6 rounded-2xl w-full max-w-full overflow-x-hidden'>
             {charities.length === 0 ? (
               <div className='text-sm text-gray-400'>No charities available yet.</div>
             ) : (
-              <div className='grid gap-4 sm:grid-cols-2 xl:grid-cols-3'>
+              <div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 w-full max-w-full mt-6'>
                 {charities.map(charity => (
-                  <div key={charity.id} className='rounded-xl border border-gray-800 bg-black/40 p-4'>
-                    {charity.image_url ? (
-                      <img src={charity.image_url} alt={charity.name} className='mb-3 h-40 w-full rounded-lg object-cover border border-gray-800' />
-                    ) : null}
-                    <h3 className='text-base font-semibold text-white'>{charity.name}</h3>
-                    <p className='mt-2 text-sm text-gray-300'>{charity.description}</p>
+                  <div key={charity.id} className='flex flex-col bg-gray-950 border border-gray-800 rounded-2xl overflow-hidden w-full max-w-full'>
+                    {charity.image_url ? <img src={charity.image_url} alt={charity.name} className='w-full h-48 object-cover' /> : null}
+                    <div className='p-4'>
+                      <h3 className='text-base font-semibold text-white'>{charity.name}</h3>
+                      <p className='mt-2 text-sm text-gray-300 break-words'>{charity.description}</p>
 
-                    <div className='mt-4 flex gap-2'>
-                      <button
-                        type='button'
-                        onClick={() => handleEditCharity(charity)}
-                        className='rounded-md border border-gray-600 bg-gray-700/40 px-3 py-1.5 text-xs font-semibold text-gray-200 hover:bg-gray-700/60'
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type='button'
-                        onClick={() => handleDeleteCharity(charity.id)}
-                        className='rounded-md border border-rose-600/40 bg-rose-700/20 px-3 py-1.5 text-xs font-semibold text-rose-200 hover:bg-rose-700/30'
-                      >
-                        Delete
-                      </button>
+                      <div className='mt-4 flex gap-2'>
+                        <button
+                          type='button'
+                          onClick={() => handleEditCharity(charity)}
+                          className='rounded-md border border-gray-600 bg-gray-700/40 px-3 py-1.5 text-xs font-semibold text-gray-200 hover:bg-gray-700/60'
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type='button'
+                          onClick={() => handleDeleteCharity(charity.id)}
+                          className='rounded-md border border-rose-600/40 bg-rose-700/20 px-3 py-1.5 text-xs font-semibold text-rose-200 hover:bg-rose-700/30'
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
