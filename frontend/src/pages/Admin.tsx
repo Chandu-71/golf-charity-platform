@@ -24,6 +24,13 @@ type WinnerClaimRow = {
   payment_status: 'pending' | 'paid';
 };
 
+type CharityFormState = {
+  id: string;
+  name: string;
+  description: string;
+  image_url: string;
+};
+
 export function Admin() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
@@ -39,24 +46,46 @@ export function Admin() {
   const [claimsError, setClaimsError] = useState<string | null>(null);
   const [claimActionLoadingById, setClaimActionLoadingById] = useState<Record<string, boolean>>({});
 
+  const [charities, setCharities] = useState<any[]>([]);
+  const [charityForm, setCharityForm] = useState<CharityFormState>({ id: '', name: '', description: '', image_url: '' });
+  const [isEditingCharity, setIsEditingCharity] = useState(false);
+  const [charitiesError, setCharitiesError] = useState<string | null>(null);
+  const [charitySaveLoading, setCharitySaveLoading] = useState(false);
+
   useEffect(() => {
-    async function fetchUsers() {
+    async function fetchInitialAdminData() {
       setUsersLoading(true);
       setUsersError(null);
+      setCharitiesError(null);
 
-      try {
+      const usersPromise = (async () => {
         const res = await fetch('/api/admin/users');
         if (!res.ok) throw new Error(`Failed to load users (${res.status})`);
         const data = (await res.json()) as UserRow[];
         setUsers(Array.isArray(data) ? data : []);
-      } catch (err) {
-        setUsersError(err instanceof Error ? err.message : 'Failed to fetch users');
-      } finally {
-        setUsersLoading(false);
+      })();
+
+      const charitiesPromise = (async () => {
+        const { data, error } = await supabase.from('charities').select('id, name, description, image_url').order('name', { ascending: true });
+
+        if (error) throw new Error(error.message || 'Failed to fetch charities');
+        setCharities(data ?? []);
+      })();
+
+      const [usersResult, charitiesResult] = await Promise.allSettled([usersPromise, charitiesPromise]);
+
+      if (usersResult.status === 'rejected') {
+        setUsersError(usersResult.reason instanceof Error ? usersResult.reason.message : 'Failed to fetch users');
       }
+
+      if (charitiesResult.status === 'rejected') {
+        setCharitiesError(charitiesResult.reason instanceof Error ? charitiesResult.reason.message : 'Failed to fetch charities');
+      }
+
+      setUsersLoading(false);
     }
 
-    fetchUsers();
+    fetchInitialAdminData();
   }, []);
 
   useEffect(() => {
@@ -164,6 +193,104 @@ export function Admin() {
       },
       'Failed to mark claim as paid',
     );
+  }
+
+  function resetCharityForm() {
+    setCharityForm({ id: '', name: '', description: '', image_url: '' });
+    setIsEditingCharity(false);
+  }
+
+  function handleEditCharity(charity: any) {
+    setCharityForm({
+      id: charity.id,
+      name: charity.name ?? '',
+      description: charity.description ?? '',
+      image_url: charity.image_url ?? '',
+    });
+    setIsEditingCharity(true);
+    setCharitiesError(null);
+  }
+
+  async function handleSaveCharity(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+
+    const payload = {
+      name: charityForm.name.trim(),
+      description: charityForm.description.trim(),
+      image_url: charityForm.image_url.trim(),
+    };
+
+    if (!payload.name || !payload.description) {
+      setCharitiesError('Name and description are required');
+      return;
+    }
+
+    setCharitySaveLoading(true);
+    setCharitiesError(null);
+
+    if (isEditingCharity) {
+      const previous = [...charities];
+
+      // Optimistically update local rows so edits appear instantly.
+      setCharities(prev =>
+        prev.map(charity =>
+          charity.id === charityForm.id
+            ? {
+                ...charity,
+                ...payload,
+              }
+            : charity,
+        ),
+      );
+
+      const { error } = await supabase.from('charities').update(payload).eq('id', charityForm.id);
+
+      if (error) {
+        setCharities(previous);
+        setCharitiesError(error.message || 'Failed to update charity');
+      } else {
+        resetCharityForm();
+      }
+
+      setCharitySaveLoading(false);
+      return;
+    }
+
+    const tempId = `temp-${Date.now()}`;
+    const optimisticCharity = { id: tempId, ...payload };
+
+    // Optimistically insert the new item into local state first.
+    setCharities(prev => [optimisticCharity, ...prev]);
+
+    const { data, error } = await supabase.from('charities').insert([payload]).select('id, name, description, image_url').single();
+
+    if (error) {
+      setCharities(prev => prev.filter(charity => charity.id !== tempId));
+      setCharitiesError(error.message || 'Failed to create charity');
+    } else {
+      setCharities(prev => prev.map(charity => (charity.id === tempId ? data : charity)));
+      resetCharityForm();
+    }
+
+    setCharitySaveLoading(false);
+  }
+
+  async function handleDeleteCharity(id: string) {
+    const shouldDelete = window.confirm('Are you sure you want to delete this charity?');
+    if (!shouldDelete) return;
+
+    const previous = [...charities];
+    setCharitiesError(null);
+
+    // Remove locally first for a responsive delete interaction.
+    setCharities(prev => prev.filter(charity => charity.id !== id));
+
+    const { error } = await supabase.from('charities').delete().eq('id', id);
+
+    if (error) {
+      setCharities(previous);
+      setCharitiesError(error.message || 'Failed to delete charity');
+    }
   }
 
   return (
@@ -344,6 +471,120 @@ export function Admin() {
               </table>
             </div>
           )}
+        </section>
+
+        <section className='rounded-2xl border border-gray-800 bg-gray-900 p-6'>
+          <div className='flex items-center gap-2 text-white'>
+            <ShieldCheck className='h-5 w-5' />
+            <h2 className='text-lg font-semibold'>Charity Management</h2>
+          </div>
+          <p className='mt-2 text-sm text-gray-400'>Create, update, and remove charities shown to members.</p>
+
+          {charitiesError ? (
+            <div className='mt-4 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200'>{charitiesError}</div>
+          ) : null}
+
+          <form onSubmit={handleSaveCharity} className='mt-5 bg-gray-900 border border-gray-800 p-6 rounded-2xl mb-6'>
+            <div className='grid gap-4 md:grid-cols-2'>
+              <div className='md:col-span-2'>
+                <label htmlFor='charity-name' className='mb-2 block text-sm font-medium text-gray-300'>
+                  Name
+                </label>
+                <input
+                  id='charity-name'
+                  type='text'
+                  value={charityForm.name}
+                  onChange={e => setCharityForm(prev => ({ ...prev, name: e.target.value }))}
+                  className='w-full bg-black border border-gray-800 rounded-lg p-3 text-white focus:border-gray-500'
+                  placeholder='Charity name'
+                  required
+                />
+              </div>
+
+              <div className='md:col-span-2'>
+                <label htmlFor='charity-description' className='mb-2 block text-sm font-medium text-gray-300'>
+                  Description
+                </label>
+                <textarea
+                  id='charity-description'
+                  value={charityForm.description}
+                  onChange={e => setCharityForm(prev => ({ ...prev, description: e.target.value }))}
+                  className='w-full bg-black border border-gray-800 rounded-lg p-3 text-white focus:border-gray-500 min-h-[120px]'
+                  placeholder='What does this charity do?'
+                  required
+                />
+              </div>
+
+              <div className='md:col-span-2'>
+                <label htmlFor='charity-image-url' className='mb-2 block text-sm font-medium text-gray-300'>
+                  Image URL
+                </label>
+                <input
+                  id='charity-image-url'
+                  type='url'
+                  value={charityForm.image_url}
+                  onChange={e => setCharityForm(prev => ({ ...prev, image_url: e.target.value }))}
+                  className='w-full bg-black border border-gray-800 rounded-lg p-3 text-white focus:border-gray-500'
+                  placeholder='https://...'
+                />
+              </div>
+            </div>
+
+            <div className='mt-4 flex flex-wrap gap-3'>
+              <button
+                type='submit'
+                disabled={charitySaveLoading}
+                className='rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-gray-200 disabled:opacity-60'
+              >
+                {charitySaveLoading ? 'Saving...' : isEditingCharity ? 'Update Charity' : 'Add Charity'}
+              </button>
+
+              {isEditingCharity ? (
+                <button
+                  type='button'
+                  onClick={resetCharityForm}
+                  className='rounded-lg border border-gray-700 px-4 py-2 text-sm font-semibold text-gray-200 hover:bg-gray-800'
+                >
+                  Cancel
+                </button>
+              ) : null}
+            </div>
+          </form>
+
+          <div className='bg-gray-900 border border-gray-800 p-6 rounded-2xl'>
+            {charities.length === 0 ? (
+              <div className='text-sm text-gray-400'>No charities available yet.</div>
+            ) : (
+              <div className='grid gap-4 sm:grid-cols-2 xl:grid-cols-3'>
+                {charities.map(charity => (
+                  <div key={charity.id} className='rounded-xl border border-gray-800 bg-black/40 p-4'>
+                    {charity.image_url ? (
+                      <img src={charity.image_url} alt={charity.name} className='mb-3 h-40 w-full rounded-lg object-cover border border-gray-800' />
+                    ) : null}
+                    <h3 className='text-base font-semibold text-white'>{charity.name}</h3>
+                    <p className='mt-2 text-sm text-gray-300'>{charity.description}</p>
+
+                    <div className='mt-4 flex gap-2'>
+                      <button
+                        type='button'
+                        onClick={() => handleEditCharity(charity)}
+                        className='rounded-md border border-gray-600 bg-gray-700/40 px-3 py-1.5 text-xs font-semibold text-gray-200 hover:bg-gray-700/60'
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type='button'
+                        onClick={() => handleDeleteCharity(charity.id)}
+                        className='rounded-md border border-rose-600/40 bg-rose-700/20 px-3 py-1.5 text-xs font-semibold text-rose-200 hover:bg-rose-700/30'
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </section>
       </div>
     </div>
