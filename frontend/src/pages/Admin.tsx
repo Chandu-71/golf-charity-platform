@@ -31,7 +31,7 @@ export function Admin() {
       setUsersError(null);
 
       try {
-        const res = await fetch('http://localhost:5000/api/admin/users');
+        const res = await fetch('/api/admin/users');
         if (!res.ok) throw new Error(`Failed to load users (${res.status})`);
         const data = (await res.json()) as UserRow[];
         setUsers(Array.isArray(data) ? data : []);
@@ -51,7 +51,7 @@ export function Admin() {
     setDrawCompleted(false);
 
     try {
-      const res = await fetch('http://localhost:5000/api/admin/draws/run', {
+      const res = await fetch('/api/admin/draws/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -113,8 +113,13 @@ export function Admin() {
               <div className='text-sm font-semibold tracking-wide text-amber-200'>Latest Winning Numbers</div>
               {latestDraw ? (
                 <div className='mt-3 flex flex-wrap gap-2'>
-                  {latestDraw.winning_numbers.map((n) => (
-                    <span key={n} className='inline-flex h-11 w-11 items-center justify-center rounded-full bg-amber-300 text-zinc-950 font-extrabold shadow-[0_0_18px_rgba(252,211,77,0.65)]'>{n}</span>
+                  {latestDraw.winning_numbers.map(n => (
+                    <span
+                      key={n}
+                      className='inline-flex h-11 w-11 items-center justify-center rounded-full bg-amber-300 text-zinc-950 font-extrabold shadow-[0_0_18px_rgba(252,211,77,0.65)]'
+                    >
+                      {n}
+                    </span>
                   ))}
                 </div>
               ) : (
@@ -145,7 +150,7 @@ export function Admin() {
                     </tr>
                   </thead>
                   <tbody>
-                    {users.map((u) => (
+                    {users.map(u => (
                       <tr key={u.id} className='border-b border-white/5 text-zinc-200'>
                         <td className='py-3 pr-4 font-mono text-xs'>{u.id.substring(0, 8)}</td>
                         <td className='py-3 pr-4'>{u.plan ?? '-'}</td>

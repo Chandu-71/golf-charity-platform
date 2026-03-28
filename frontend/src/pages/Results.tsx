@@ -16,7 +16,7 @@ export function Results() {
   useEffect(() => {
     const fetchDraws = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/draws');
+        const response = await fetch('/api/draws');
         if (!response.ok) throw new Error(`Network response was not ok`);
         const data = await response.json();
         setDraws(Array.isArray(data) ? data : []);

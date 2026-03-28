@@ -20,7 +20,7 @@ export function Home() {
       try {
         setLoading(true);
         setError(null);
-        const res = await fetch('http://localhost:5000/api/charities');
+        const res = await fetch('/api/charities');
         if (!res.ok) {
           throw new Error(`Failed to load charities (${res.status})`);
         }
