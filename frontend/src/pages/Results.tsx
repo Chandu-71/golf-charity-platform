@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Calendar, ShieldCheck, Trophy } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 
 type DrawRecord = {
   id: string;
@@ -9,8 +11,21 @@ type DrawRecord = {
   status?: string;
 };
 
+type WinnerClaim = {
+  id: string;
+  draw_id: string;
+  verification_status: 'pending' | 'approved' | 'rejected';
+  payment_status: 'pending' | 'paid';
+};
+
 export function Results() {
+  const { user } = useAuth();
   const [draws, setDraws] = useState<DrawRecord[]>([]);
+  const [userClaims, setUserClaims] = useState<Record<string, any>>({});
+  const [activeClaimDrawId, setActiveClaimDrawId] = useState<string | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<Record<string, File | null>>({});
+  const [claimSubmittingByDraw, setClaimSubmittingByDraw] = useState<Record<string, boolean>>({});
+  const [claimErrorsByDraw, setClaimErrorsByDraw] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -31,6 +46,161 @@ export function Results() {
     fetchDraws();
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchClaims() {
+      if (!user) {
+        if (!cancelled) setUserClaims({});
+        return;
+      }
+
+      const { data, error } = await supabase.from('winners').select('id, draw_id, verification_status, payment_status').eq('user_id', user.id);
+
+      if (cancelled) return;
+
+      if (error) {
+        console.error('Failed to load winner claims', error);
+        setUserClaims({});
+        return;
+      }
+
+      const mappedClaims = ((data as WinnerClaim[]) ?? []).reduce<Record<string, WinnerClaim>>((acc, claim) => {
+        acc[claim.draw_id] = claim;
+        return acc;
+      }, {});
+
+      setUserClaims(mappedClaims);
+    }
+
+    fetchClaims();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const claimsChannel = supabase
+      .channel(`winner-claims-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'winners',
+          filter: `user_id=eq.${user.id}`,
+        },
+        payload => {
+          const incomingClaim = payload.new as WinnerClaim;
+          if (!incomingClaim?.draw_id) return;
+
+          setUserClaims(prev => ({
+            ...prev,
+            [incomingClaim.draw_id]: incomingClaim,
+          }));
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(claimsChannel);
+    };
+  }, [user]);
+
+  function renderClaimStatusBadge(claim: WinnerClaim) {
+    if (claim.verification_status === 'pending') {
+      return (
+        <span className='inline-flex rounded-full border border-amber-400/40 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-200'>
+          Review Pending ⏳
+        </span>
+      );
+    }
+
+    if (claim.verification_status === 'rejected') {
+      return (
+        <span className='inline-flex rounded-full border border-rose-500/40 bg-rose-500/10 px-3 py-1 text-xs font-semibold text-rose-200'>
+          Claim Rejected ❌
+        </span>
+      );
+    }
+
+    if (claim.verification_status === 'approved' && claim.payment_status === 'pending') {
+      return (
+        <span className='inline-flex rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-200'>
+          Approved! Awaiting Payment 💸
+        </span>
+      );
+    }
+
+    if (claim.verification_status === 'approved' && claim.payment_status === 'paid') {
+      return (
+        <span className='inline-flex rounded-full border border-lime-400/50 bg-lime-500/15 px-3 py-1 text-xs font-semibold text-lime-200'>
+          Prize Paid! 🎉
+        </span>
+      );
+    }
+
+    return null;
+  }
+
+  async function handleClaimSubmit(drawId: string, file: File | null) {
+    if (!user) {
+      setClaimErrorsByDraw(prev => ({ ...prev, [drawId]: 'Please sign in to submit a claim.' }));
+      return;
+    }
+
+    if (!file) {
+      setClaimErrorsByDraw(prev => ({ ...prev, [drawId]: 'Please select an image proof before submitting.' }));
+      return;
+    }
+
+    setClaimSubmittingByDraw(prev => ({ ...prev, [drawId]: true }));
+    setClaimErrorsByDraw(prev => ({ ...prev, [drawId]: '' }));
+
+    try {
+      const extension = file.name.includes('.') ? file.name.split('.').pop()?.toLowerCase() : '';
+      const safeExtension = extension && /^[a-z0-9]+$/.test(extension) ? `.${extension}` : '';
+      const fileName = `${user.id}-${Date.now()}${safeExtension}`;
+
+      const { error: uploadError } = await supabase.storage.from('proofs').upload(fileName, file, {
+        upsert: false,
+        contentType: file.type || undefined,
+      });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage.from('proofs').getPublicUrl(fileName);
+      const proofUrl = urlData.publicUrl;
+
+      const { data: insertedClaim, error: insertError } = await supabase
+        .from('winners')
+        .insert({
+          draw_id: drawId,
+          user_id: user.id,
+          proof_url: proofUrl,
+        })
+        .select('id, draw_id, verification_status, payment_status')
+        .single();
+
+      if (insertError) throw insertError;
+
+      const typedClaim = insertedClaim as WinnerClaim;
+      setUserClaims(prev => ({ ...prev, [typedClaim.draw_id]: typedClaim }));
+      setSelectedFiles(prev => ({ ...prev, [drawId]: null }));
+      setActiveClaimDrawId(null);
+    } catch (error) {
+      console.error('Claim submission failed', error);
+      setClaimErrorsByDraw(prev => ({
+        ...prev,
+        [drawId]: error instanceof Error ? error.message : 'Failed to submit claim. Please try again.',
+      }));
+    } finally {
+      setClaimSubmittingByDraw(prev => ({ ...prev, [drawId]: false }));
+    }
+  }
+
   return (
     <div className='mx-auto max-w-7xl px-4 py-24 text-white'>
       <div className='text-center'>
@@ -46,6 +216,7 @@ export function Results() {
           <p className='text-gray-400'>No draw data available yet.</p>
         ) : (
           draws.map(draw => {
+            const claim = userClaims[draw.id] as WinnerClaim | undefined;
             const rawDate = draw.created_at || (draw as any).date;
             const dateObj = rawDate ? new Date(rawDate) : new Date();
             const isValidDate = !Number.isNaN(dateObj.getTime());
@@ -57,7 +228,7 @@ export function Results() {
             return (
               <div
                 key={draw.id}
-                className='bg-gray-900 border border-gray-800 rounded-xl p-6 flex flex-col md:flex-row items-start justify-between gap-6 mb-4 hover:border-gray-700 transition'
+                className='bg-gray-900 border border-gray-800 rounded-2xl p-6 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6'
               >
                 <div className='min-w-[120px] min-h-[120px] rounded-xl bg-gray-800 border border-gray-700 flex flex-col items-center justify-center text-white'>
                   <p className='text-sm uppercase tracking-wide text-gray-400'>{month}</p>
@@ -66,11 +237,11 @@ export function Results() {
                 </div>
 
                 <div className='flex-1 w-full'>
-                  <div className='flex flex-wrap gap-2 mb-4'>
+                  <div className='flex flex-wrap items-center gap-3'>
                     {draw.winning_numbers.map(num => (
                       <span
                         key={num}
-                        className='w-12 h-12 rounded-full bg-black border border-gray-700 flex items-center justify-center text-white font-bold text-lg shadow-inner'
+                        className='w-12 h-12 rounded-full bg-black border border-gray-700 flex items-center justify-center text-lg font-bold text-white shadow-inner'
                       >
                         {num}
                       </span>
@@ -81,7 +252,50 @@ export function Results() {
                 <div className='text-right'>
                   <p className='text-xs uppercase tracking-wide text-gray-400'>JACKPOT POOL</p>
                   <p className='text-2xl font-bold text-white'>£10,000</p>
+
+                  {user && !claim ? (
+                    <div className='mt-4 text-left md:text-right'>
+                      <button
+                        type='button'
+                        onClick={() => {
+                          setActiveClaimDrawId(prev => (prev === draw.id ? null : draw.id));
+                          setClaimErrorsByDraw(prev => ({ ...prev, [draw.id]: '' }));
+                        }}
+                        className='inline-flex items-center rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-xs font-semibold text-white hover:bg-gray-700 transition'
+                      >
+                        Claim Win
+                      </button>
+                    </div>
+                  ) : null}
+
+                  {claim ? <div className='mt-3'>{renderClaimStatusBadge(claim)}</div> : null}
                 </div>
+
+                {activeClaimDrawId === draw.id && user && !claim ? (
+                  <div className='w-full border-t border-gray-800 pt-4'>
+                    <div className='flex items-center gap-3 bg-gray-950 p-2 rounded-xl border border-gray-800'>
+                      <input
+                        type='file'
+                        accept='image/*'
+                        onChange={event => {
+                          const file = event.target.files?.[0] ?? null;
+                          setSelectedFiles(prev => ({ ...prev, [draw.id]: file }));
+                        }}
+                        className='block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-800 file:text-white hover:file:bg-gray-700 cursor-pointer'
+                      />
+                      <button
+                        type='button'
+                        onClick={() => handleClaimSubmit(draw.id, selectedFiles[draw.id] ?? null)}
+                        disabled={Boolean(claimSubmittingByDraw[draw.id])}
+                        className='px-6 py-2 bg-white text-black font-semibold rounded-lg hover:bg-gray-200 transition-colors whitespace-nowrap disabled:opacity-60'
+                      >
+                        {claimSubmittingByDraw[draw.id] ? 'Submitting...' : 'Submit Claim'}
+                      </button>
+                    </div>
+
+                    {claimErrorsByDraw[draw.id] ? <p className='mt-2 text-sm text-rose-300'>{claimErrorsByDraw[draw.id]}</p> : null}
+                  </div>
+                ) : null}
               </div>
             );
           })

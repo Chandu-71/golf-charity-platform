@@ -12,6 +12,7 @@ import { Admin } from './pages/Admin';
 import { Checkout } from './pages/Checkout';
 import { Charities } from './pages/Charities';
 import { Results } from './pages/Results';
+import { Profile } from './pages/Profile';
 
 function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -45,6 +46,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <Checkout />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path='/profile'
+              element={
+                <ProtectedRoute>
+                  <Profile />
                 </ProtectedRoute>
               }
             />

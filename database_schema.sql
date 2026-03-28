@@ -3,6 +3,7 @@ DROP TABLE IF EXISTS public.scores CASCADE;
 DROP TABLE IF EXISTS public.profiles CASCADE;
 DROP TABLE IF EXISTS public.charities CASCADE;
 DROP TABLE IF EXISTS public.draws CASCADE;
+DROP TABLE IF EXISTS public.winners CASCADE;
 DROP FUNCTION IF EXISTS keep_latest_five_scores() CASCADE;
 
 -- 1. Create Charities Table
@@ -40,7 +41,18 @@ CREATE TABLE public.draws (
     total_prize_pool NUMERIC DEFAULT 0
 );
 
--- 5. The Rolling 5-Score Trigger (PRD Requirement)
+-- 5. Create Winners Table
+CREATE TABLE public.winners (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  draw_id UUID NOT NULL REFERENCES public.draws(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  proof_url TEXT NOT NULL,
+  verification_status TEXT NOT NULL DEFAULT 'pending' CHECK (verification_status IN ('pending', 'approved', 'rejected')),
+  payment_status TEXT NOT NULL DEFAULT 'pending' CHECK (payment_status IN ('pending', 'paid')),
+  UNIQUE (draw_id, user_id)
+);
+
+-- 6. The Rolling 5-Score Trigger (PRD Requirement)
 CREATE OR REPLACE FUNCTION keep_latest_five_scores()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -61,13 +73,14 @@ AFTER INSERT ON public.scores
 FOR EACH ROW
 EXECUTE FUNCTION keep_latest_five_scores();
 
--- 6. Enable Security (RLS)
+-- 7. Enable Security (RLS)
 ALTER TABLE public.charities ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.scores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.draws ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.winners ENABLE ROW LEVEL SECURITY;
 
--- 7. Security Policies
+-- 8. Security Policies
 CREATE POLICY "Charities viewable by everyone" ON public.charities FOR SELECT USING (true);
 CREATE POLICY "Draws viewable by everyone" ON public.draws FOR SELECT USING (true);
 CREATE POLICY "Users view own profile" ON public.profiles FOR SELECT USING (auth.uid() = id);
@@ -76,3 +89,21 @@ CREATE POLICY "Users view own scores" ON public.scores FOR SELECT USING (auth.ui
 CREATE POLICY "Users insert own scores" ON public.scores FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users insert own profile" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
 CREATE POLICY "Users delete own scores" ON public.scores FOR DELETE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users view own winner claims"
+ON public.winners FOR SELECT
+USING (auth.uid() = user_id);
+
+CREATE POLICY "Users create own winner claims"
+ON public.winners FOR INSERT
+WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Admins manage winner claims"
+ON public.winners FOR UPDATE
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.profiles p
+    WHERE p.id = auth.uid() AND p.role = 'admin'
+  )
+);

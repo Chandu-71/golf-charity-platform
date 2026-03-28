@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ShieldCheck, Users, Trophy, Sparkles } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 type UserRow = {
   id: string;
@@ -14,6 +15,15 @@ type DrawRow = {
   status: string;
 };
 
+type WinnerClaimRow = {
+  id: string;
+  draw_id: string;
+  user_id: string;
+  proof_url: string;
+  verification_status: 'pending' | 'approved' | 'rejected';
+  payment_status: 'pending' | 'paid';
+};
+
 export function Admin() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
@@ -23,6 +33,11 @@ export function Admin() {
   const [drawError, setDrawError] = useState<string | null>(null);
   const [latestDraw, setLatestDraw] = useState<DrawRow | null>(null);
   const [drawCompleted, setDrawCompleted] = useState(false);
+
+  const [winnerClaims, setWinnerClaims] = useState<WinnerClaimRow[]>([]);
+  const [claimsLoading, setClaimsLoading] = useState(true);
+  const [claimsError, setClaimsError] = useState<string | null>(null);
+  const [claimActionLoadingById, setClaimActionLoadingById] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     async function fetchUsers() {
@@ -42,6 +57,37 @@ export function Admin() {
     }
 
     fetchUsers();
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    async function fetchWinnerClaims() {
+      setClaimsLoading(true);
+      setClaimsError(null);
+
+      const { data, error } = await supabase
+        .from('winners')
+        .select('id, draw_id, user_id, proof_url, verification_status, payment_status')
+        .order('id', { ascending: false });
+
+      if (!active) return;
+
+      if (error) {
+        setClaimsError(error.message || 'Failed to fetch winner claims');
+        setWinnerClaims([]);
+      } else {
+        setWinnerClaims((data as WinnerClaimRow[]) ?? []);
+      }
+
+      setClaimsLoading(false);
+    }
+
+    fetchWinnerClaims();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   async function runMonthlyDraw() {
@@ -64,6 +110,60 @@ export function Admin() {
     } finally {
       setDrawLoading(false);
     }
+  }
+
+  async function updateWinnerClaimStatus(
+    claimId: string,
+    patch: Partial<Pick<WinnerClaimRow, 'verification_status' | 'payment_status'>>,
+    fallbackErrorMessage: string,
+  ) {
+    const previous = winnerClaims.find(claim => claim.id === claimId);
+    if (!previous) return;
+
+    setClaimActionLoadingById(prev => ({ ...prev, [claimId]: true }));
+    setClaimsError(null);
+
+    // Optimistically update the row so the table reflects the admin action instantly.
+    setWinnerClaims(prev => prev.map(claim => (claim.id === claimId ? { ...claim, ...patch } : claim)));
+
+    const { error } = await supabase.from('winners').update(patch).eq('id', claimId);
+
+    if (error) {
+      setWinnerClaims(prev => prev.map(claim => (claim.id === claimId ? previous : claim)));
+      setClaimsError(error.message || fallbackErrorMessage);
+    }
+
+    setClaimActionLoadingById(prev => ({ ...prev, [claimId]: false }));
+  }
+
+  async function handleApprove(claimId: string) {
+    await updateWinnerClaimStatus(
+      claimId,
+      {
+        verification_status: 'approved',
+      },
+      'Failed to approve claim',
+    );
+  }
+
+  async function handleReject(claimId: string) {
+    await updateWinnerClaimStatus(
+      claimId,
+      {
+        verification_status: 'rejected',
+      },
+      'Failed to reject claim',
+    );
+  }
+
+  async function handleMarkPaid(claimId: string) {
+    await updateWinnerClaimStatus(
+      claimId,
+      {
+        payment_status: 'paid',
+      },
+      'Failed to mark claim as paid',
+    );
   }
 
   return (
@@ -162,6 +262,89 @@ export function Admin() {
             )}
           </section>
         </div>
+
+        <section className='rounded-2xl border border-gray-800 bg-gray-900 p-6'>
+          <div className='flex items-center gap-2 text-white'>
+            <ShieldCheck className='h-5 w-5' />
+            <h2 className='text-lg font-semibold'>Winner Verification</h2>
+          </div>
+          <p className='mt-2 text-sm text-gray-400'>Review submitted proof images, then verify and mark payouts.</p>
+
+          {claimsError ? (
+            <div className='mt-4 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200'>{claimsError}</div>
+          ) : null}
+
+          {claimsLoading ? (
+            <div className='mt-5 text-sm text-gray-400'>Loading winner claims...</div>
+          ) : winnerClaims.length === 0 ? (
+            <div className='mt-5 text-sm text-gray-400'>No winner claims have been submitted yet.</div>
+          ) : (
+            <div className='mt-5 overflow-x-auto'>
+              <table className='w-full min-w-[840px] text-sm'>
+                <thead>
+                  <tr className='border-b border-gray-800 text-gray-300'>
+                    <th className='py-2 pr-4 text-left font-medium'>Draw ID</th>
+                    <th className='py-2 pr-4 text-left font-medium'>User ID</th>
+                    <th className='py-2 pr-4 text-left font-medium'>Proof</th>
+                    <th className='py-2 pr-4 text-left font-medium'>Verification Status</th>
+                    <th className='py-2 pr-4 text-left font-medium'>Payment Status</th>
+                    <th className='py-2 text-left font-medium'>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {winnerClaims.map(claim => (
+                    <tr key={claim.id} className='border-b border-gray-800/80 text-gray-200'>
+                      <td className='py-3 pr-4 font-mono text-xs'>{claim.draw_id.slice(0, 8)}</td>
+                      <td className='py-3 pr-4 font-mono text-xs'>{claim.user_id.slice(0, 8)}</td>
+                      <td className='py-3 pr-4'>
+                        <a
+                          href={claim.proof_url}
+                          target='_blank'
+                          rel='noreferrer'
+                          className='text-cyan-300 hover:text-cyan-200 underline underline-offset-2'
+                        >
+                          View Proof
+                        </a>
+                      </td>
+                      <td className='py-3 pr-4 capitalize'>{claim.verification_status}</td>
+                      <td className='py-3 pr-4 capitalize'>{claim.payment_status}</td>
+                      <td className='py-3'>
+                        <div className='flex flex-wrap gap-2'>
+                          <button
+                            type='button'
+                            onClick={() => handleApprove(claim.id)}
+                            disabled={Boolean(claimActionLoadingById[claim.id]) || claim.verification_status === 'approved'}
+                            className='rounded-md border border-emerald-600/40 bg-emerald-700/20 px-3 py-1.5 text-xs font-semibold text-emerald-200 hover:bg-emerald-700/30 disabled:opacity-50'
+                          >
+                            Approve
+                          </button>
+                          <button
+                            type='button'
+                            onClick={() => handleReject(claim.id)}
+                            disabled={Boolean(claimActionLoadingById[claim.id]) || claim.verification_status === 'rejected'}
+                            className='rounded-md border border-rose-600/40 bg-rose-700/20 px-3 py-1.5 text-xs font-semibold text-rose-200 hover:bg-rose-700/30 disabled:opacity-50'
+                          >
+                            Reject
+                          </button>
+                          {claim.verification_status === 'approved' ? (
+                            <button
+                              type='button'
+                              onClick={() => handleMarkPaid(claim.id)}
+                              disabled={Boolean(claimActionLoadingById[claim.id]) || claim.payment_status === 'paid'}
+                              className='rounded-md border border-amber-600/40 bg-amber-700/20 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-700/30 disabled:opacity-50'
+                            >
+                              Mark Paid
+                            </button>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );

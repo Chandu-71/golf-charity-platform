@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { HeartHandshake } from 'lucide-react';
+import { HeartHandshake, User } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 
@@ -44,7 +44,7 @@ export function Navbar() {
   }
 
   return (
-    <div className='border-b border-white/10 bg-zinc-950/80 backdrop-blur supports-[backdrop-filter]:bg-zinc-950/60 sticky top-0 z-50'>
+    <div className='sticky top-0 z-50 bg-gray-950/80 backdrop-blur-md border-b border-gray-800'>
       <div className='mx-auto max-w-7xl px-4 py-3 flex items-center justify-between gap-4'>
         <Link to='/' className='flex items-center gap-2 font-semibold tracking-tight'>
           <span className='inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/10'>
@@ -75,7 +75,12 @@ export function Navbar() {
         <div className='flex items-center gap-2'>
           {user ? (
             <>
-              <span className='hidden sm:inline-flex rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-zinc-200'>{user.email}</span>
+              <Link
+                to='/profile'
+                className='w-10 h-10 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center text-gray-300 hover:text-white hover:border-gray-600 transition'
+              >
+                <User size={20} />
+              </Link>
               <button
                 type='button'
                 onClick={handleLogout}
