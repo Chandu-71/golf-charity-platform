@@ -45,7 +45,7 @@ export function Dashboard() {
       .from('profiles')
       .select('subscription_status')
       .eq('id', resolvedUserId)
-      .single();
+      .maybeSingle();
 
     if (profileError) {
       setError(profileError.message);

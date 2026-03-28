@@ -65,10 +65,19 @@ export function Checkout() {
       name: 'Golf Charity Platform',
       order_id: order.id,
       handler: async () => {
-        const { error: updateError } = await supabase.from('profiles').update({ subscription_status: 'active' }).eq('id', user.id);
+        const { data: updatedProfile, error: updateError } = await supabase
+          .from('profiles')
+          .upsert({ id: user.id, subscription_status: 'active' }, { onConflict: 'id' })
+          .select('subscription_status')
+          .maybeSingle();
 
         if (updateError) {
           setError(updateError.message);
+          return;
+        }
+
+        if (!updatedProfile) {
+          setError('Your subscription could not be updated. Please contact support.');
           return;
         }
 

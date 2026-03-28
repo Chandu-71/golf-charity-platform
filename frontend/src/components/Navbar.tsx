@@ -17,7 +17,7 @@ export function Navbar() {
         return;
       }
       try {
-        const { data: profile, error } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+        const { data: profile, error } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
 
         if (!active) return;
         if (error) {
