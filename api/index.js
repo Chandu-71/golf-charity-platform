@@ -89,4 +89,9 @@ app.post('/api/payment/create-order', async (req, res) => {
   }
 });
 
+// 404 handler for API routes when called directly (debugging + non-Vercel)
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: 'API route not found', path: req.originalUrl });
+});
+
 module.exports = app;

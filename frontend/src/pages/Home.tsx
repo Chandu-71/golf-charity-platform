@@ -22,11 +22,20 @@ export function Home() {
         setError(null);
         const res = await fetch('/api/charities');
         if (!res.ok) {
-          throw new Error(`Failed to load charities (${res.status})`);
+          const body = await res.text();
+          throw new Error(`Failed to load charities (${res.status}): ${body.slice(0, 140)}`);
         }
+
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+          const body = await res.text();
+          throw new Error(`Expected JSON from /api/charities but got ${contentType || 'unknown'}: ${body.slice(0, 140)}`);
+        }
+
         const json = (await res.json()) as Charity[];
         if (!cancelled) setCharities(Array.isArray(json) ? json : []);
       } catch (e) {
+        console.error('/api/charities load failed', e);
         if (!cancelled) setError(e instanceof Error ? e.message : 'Fetch failed');
       } finally {
         if (!cancelled) setLoading(false);
